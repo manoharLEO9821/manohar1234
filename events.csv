@@ -8,4 +8,4 @@ timestamp,event,snapshot
 2026-11-09T21:17:54,FALL_ALERT_SENT,snapshots\fall_20261109_211754.jpg
 2026-11-20T20:23:24,FALL_ALERT_SENT,snapshots\fall_20261120_202324.jpg
 2026-11-23T20:15:01,FALL_ALERT_SENT,snapshots\fall_20261123_201501.jpg
-2026-11-27T19:42:01,FALL_ALERT_SENT,C:\Users\manoh\open ccv\elderfall\snapshots\fall_20261127_194201.jpg
+2026-11-27T19:42:01,FALL_ALERT_SENT,snapshots/fall_20261127_194201.jpg
