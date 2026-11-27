@@ -14,7 +14,11 @@ import cv2
 import requests
 
 import config
-from auto_sync import push_to_github
+
+try:
+    from auto_sync import push_to_github as _push_to_github
+except ImportError:
+    _push_to_github = None
 
 
 def _save_snapshot(frame):
@@ -93,8 +97,17 @@ def _send_email(path, message):
         print("[alert] Email failed:", e)
 
 
+def _trigger_git_sync(msg):
+    if _push_to_github is None:
+        return
+    try:
+        _push_to_github(msg)
+    except Exception as e:
+        print("[alert] Git sync skipped:", e)
+
+
 def send_emergency_alert(frame):
-    """Save a snapshot, log it, notify caregivers, and sync updates to GitHub."""
+    """Save a snapshot, log it, and notify caregivers via SMS without blocking the video loop."""
     path = _save_snapshot(frame.copy())
     stamp = datetime.now().strftime("%d %b %Y, %H:%M:%S")
     message = f"ElderFall ALERT: possible fall detected at {stamp}. Please check immediately."
@@ -103,7 +116,7 @@ def send_emergency_alert(frame):
     threading.Thread(target=_send_sms, args=(message,), daemon=True).start()
     threading.Thread(target=_send_email, args=(path, message), daemon=True).start()
     threading.Thread(
-        target=push_to_github,
+        target=_trigger_git_sync,
         args=(f"Fall alert {datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}",),
         daemon=True,
     ).start()
@@ -112,7 +125,7 @@ def send_emergency_alert(frame):
 def log_cancelled():
     _log_event("ALERT_CANCELLED_BY_USER")
     threading.Thread(
-        target=push_to_github,
+        target=_trigger_git_sync,
         args=(f"Alert cancelled {datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}",),
         daemon=True,
     ).start()
