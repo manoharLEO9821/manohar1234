@@ -14,14 +14,21 @@ import os
 import socket
 from datetime import datetime
 
-from flask import Flask, Response, abort, render_template_string, request, send_from_directory
+from flask import Flask, Response, render_template_string, request, send_from_directory
 
 import config
 
 app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MAX_PHOTOS = 5
 PASSWORD = os.getenv("WEB_PASSWORD", "")
 START_PORT = int(os.getenv("WEB_PORT", "5001"))
+
+
+def resolve_path(path_value):
+    if os.path.isabs(path_value):
+        return path_value
+    return os.path.join(BASE_DIR, path_value)
 
 
 @app.before_request
@@ -36,17 +43,20 @@ def require_login():
 
 def read_events():
     """Return all events from events.csv, newest first."""
-    if not os.path.exists(config.LOG_FILE):
+    log_file = resolve_path(config.LOG_FILE)
+    snapshot_dir = resolve_path(config.SNAPSHOT_DIR)
+    if not os.path.exists(log_file):
         return []
     events = []
     try:
-        with open(config.LOG_FILE, newline="", encoding="utf-8") as f:
+        with open(log_file, newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 snap = row.get("snapshot") or ""
                 row["event"] = row.get("event") or ""
                 row["photo"] = os.path.basename(snap) if snap else ""
                 row["photo_exists"] = bool(row["photo"]) and os.path.exists(
-                    os.path.join(config.SNAPSHOT_DIR, row["photo"]))
+                    os.path.join(snapshot_dir, row["photo"])
+                )
                 try:
                     dt = datetime.fromisoformat(row["timestamp"])
                     row["pretty_time"] = dt.strftime("%d %b %Y, %I:%M:%S %p")
@@ -167,8 +177,14 @@ PAGE = """
 def home():
     alerts = [e for e in read_events() if e.get("event") == "FALL_ALERT_SENT"]
     photos = [e for e in alerts if e["photo_exists"]][:MAX_PHOTOS]
-    return render_template_string(PAGE, page="home", refresh=True, max_photos=MAX_PHOTOS,
-                                  latest=alerts[0] if alerts else None, photos=photos)
+    return render_template_string(
+        PAGE,
+        page="home",
+        refresh=True,
+        max_photos=MAX_PHOTOS,
+        latest=alerts[0] if alerts else None,
+        photos=photos,
+    )
 
 
 @app.route("/history")
@@ -178,7 +194,7 @@ def history():
 
 @app.route("/snapshots/<path:filename>")
 def snapshot(filename):
-    folder = os.path.abspath(config.SNAPSHOT_DIR)
+    folder = resolve_path(config.SNAPSHOT_DIR)
     return send_from_directory(folder, filename)
 
 
